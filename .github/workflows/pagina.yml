@@ -1,0 +1,51 @@
+name: Publicar pagina
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  ligar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Criar o site do GitHub Pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          gh api --method POST "repos/${{ github.repository }}/pages" \
+            -f build_type=workflow > /tmp/pages-create.json
+          echo "create_exit=$?"
+          gh api "repos/${{ github.repository }}/pages" > /tmp/pages-get.json
+          echo "get_exit=$?"
+          echo "--- create ---"
+          cat /tmp/pages-create.json
+          echo "--- get ---"
+          cat /tmp/pages-get.json
+
+  publicar:
+    needs: ligar
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Enviar arquivos
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - name: Publicar
+        id: deployment
+        uses: actions/deploy-pages@v4
